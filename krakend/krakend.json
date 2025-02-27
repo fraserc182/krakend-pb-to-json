@@ -1,0 +1,121 @@
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "name": "Realtime",
+  "timeout": "500000ms",
+  "cache_ttl": "300s",
+  "output_encoding": "json",
+  "debug_endpoint": true,
+  "extra_config": {
+    "telemetry/logging": {
+      "level": "DEBUG",
+      "prefix": "[KRAKEND]",
+      "syslog": false,
+      "stdout": true
+    }
+  },
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/realtime/westchester/gtfsrt/tripupdates",
+      "method": "GET",
+      "output_encoding": "negotiate",
+      "backend": [
+        {
+          "url_pattern": "/realtime_dmp/webapi/trip_updates",
+          "encoding": "proto",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "https://westchester-rt-staging.itoworld.com/"
+          ],
+          "extra_config": {
+            "plugin/http-client": {
+              "name": "krakend-pb-to-json"
+            }
+          },
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "debug",
+        "mode"
+      ],
+      "input_headers": [
+        "*"
+      ]
+    },
+    {
+      "endpoint": "/api/v1/realtime/westchester/gtfsrt/vehiclepositions",
+      "method": "GET",
+      "output_encoding": "negotiate",
+      "backend": [
+        {
+          "url_pattern": "/realtime_dmp/webapi/vehicle_updates",
+          "encoding": "string",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "https://westchester-rt-staging.itoworld.com/"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "debug",
+        "mode"
+      ],
+      "input_headers": [
+        "*"
+      ]
+    },
+    {
+      "endpoint": "/api/v1/realtime/westchester/gtfsrt/servicealerts",
+      "method": "GET",
+      "output_encoding": "negotiate",
+      "backend": [
+        {
+          "url_pattern": "/realtime_dmp/webapi/text_alerts",
+          "encoding": "string",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "https://westchester-rt-staging.itoworld.com/"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "debug",
+        "mode"
+      ],
+      "input_headers": [
+        "*"
+      ]
+    },
+    {
+      "endpoint": "/api/v1/schedules/{path}",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/{path}",
+          "encoding": "json",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "https://ito-static-data-api-staging.itoworld.com"
+          ],
+          "disable_host_sanitize": false,
+          "timeout": "5000ms"
+        }
+      ],
+      "input_query_strings": [
+        "*"
+      ],
+      "input_headers": [
+        "*"
+      ]
+    }
+  ],
+  "port": 8080
+}
