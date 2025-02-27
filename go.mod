@@ -1,4 +1,4 @@
-module krakend-pb-to-json
+module github.com/fraserclark/krakend-pb-to-json
 
 go 1.24.0
 
