@@ -39,11 +39,11 @@ go build -buildmode=plugin -o krakend-pb-to-json.so .
       "backend": [
         {
           "url_pattern": "/gtfs-rt",
-          "encoding": "proto",
           "host": ["http://your-backend-service"],
           "extra_config": {
             "plugin/http-client": {
-              "name": "krakend-pb-to-json"
+              "name": ["krakend-pb-to-json"],
+              "plugin": "proto"
             }
           }
         }
