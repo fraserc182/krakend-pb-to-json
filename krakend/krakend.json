@@ -30,7 +30,8 @@
           ],
           "extra_config": {
             "plugin/http-client": {
-              "name": "krakend-pb-to-json"
+              "name": ["krakend-pb-to-json"],
+              "plugin": "proto"
             }
           },
           "disable_host_sanitize": false

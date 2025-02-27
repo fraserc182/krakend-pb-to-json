@@ -30,25 +30,75 @@ func (r registerer) RegisterHandlers(f func(
 	fmt.Fprintf(os.Stderr, "Proto decoder registered as '%s'\n", r)
 }
 
+// Utility min function
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // The actual plugin handler that wraps our protobuf decoder
 func (r registerer) registerProtoDecoder(
-	_ interface{},
+	cfg interface{},
 	resp io.ReadCloser,
 ) (io.ReadCloser, error) {
+	// Log plugin invocation
+	fmt.Fprintf(os.Stderr, "[DEBUG] Proto decoder plugin invoked with config: %+v\n", cfg)
+	
+	// Create a debug log file in the current directory
+	logFile, err := os.OpenFile("/tmp/krakend-proto-debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		defer logFile.Close()
+		fmt.Fprintf(logFile, "--- New request ---\n")
+		fmt.Fprintf(logFile, "Config: %+v\n", cfg)
+	}
+	
 	// Read all the response data
 	data, err := io.ReadAll(resp)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[ERROR] Reading protobuf data: %s\n", err.Error())
+		errMsg := fmt.Sprintf("[ERROR] Reading protobuf data: %s\n", err.Error())
+		fmt.Fprintf(os.Stderr, errMsg)
+		if logFile != nil {
+			fmt.Fprintf(logFile, "%s\n", errMsg)
+		}
 		return nil, err
 	}
 	
-	// Log data size for debugging
-	fmt.Fprintf(os.Stderr, "[DEBUG] Received %d bytes of protobuf data\n", len(data))
+	// Log data size and first few bytes for debugging
+	debugMsg := fmt.Sprintf("[DEBUG] Received %d bytes of protobuf data\n", len(data))
+	fmt.Fprintf(os.Stderr, debugMsg)
+	if logFile != nil {
+		fmt.Fprintf(logFile, "%s\n", debugMsg)
+		if len(data) > 0 {
+			fmt.Fprintf(logFile, "First 30 bytes: % x\n", data[:min(30, len(data))])
+		}
+	}
 	
 	// Handle empty response
 	if len(data) == 0 {
-		fmt.Fprintf(os.Stderr, "[WARN] Empty protobuf response\n")
+		warnMsg := "[WARN] Empty protobuf response\n"
+		fmt.Fprintf(os.Stderr, warnMsg)
+		if logFile != nil {
+			fmt.Fprintf(logFile, "%s\n", warnMsg)
+		}
 		return io.NopCloser(strings.NewReader("{}")), nil
+	}
+	
+	// Try to create an empty response directly for debugging
+	if logFile != nil {
+		fmt.Fprintf(logFile, "First attempting to return a simple JSON response for testing\n")
+	}
+	
+	// Debug: Return a static JSON response to test if the issue is with protobuf parsing
+	if true {  // Change to true to test static response
+		jsonResponse := `{"test": "This is a test response from the proto decoder plugin"}`
+		return io.NopCloser(strings.NewReader(jsonResponse)), nil
+	}
+	
+	// Check if data starts with the protobuf magic number (not always present)
+	if len(data) > 4 && logFile != nil {
+		fmt.Fprintf(logFile, "Initial bytes check: %v\n", data[:4])
 	}
 	
 	// Create a new GTFS-realtime FeedMessage
@@ -56,12 +106,21 @@ func (r registerer) registerProtoDecoder(
 	
 	// Unmarshal the protobuf data
 	if err := proto.Unmarshal(data, message); err != nil {
-		fmt.Fprintf(os.Stderr, "[ERROR] Unmarshaling protobuf: %s\n", err.Error())
-		// Try to dump some raw data for debugging
-		if len(data) > 20 {
-			fmt.Fprintf(os.Stderr, "[DEBUG] First 20 bytes: %v\n", data[:20])
+		errMsg := fmt.Sprintf("[ERROR] Unmarshaling protobuf: %s\n", err.Error())
+		fmt.Fprintf(os.Stderr, errMsg)
+		if logFile != nil {
+			fmt.Fprintf(logFile, "%s\n", errMsg)
+			// Dump more raw data for debugging
+			if len(data) > 50 {
+				fmt.Fprintf(logFile, "First 50 bytes: % x\n", data[:50])
+			} else {
+				fmt.Fprintf(logFile, "All bytes: % x\n", data)
+			}
 		}
-		return nil, err
+		
+		// Return a friendly error response as JSON instead of failing
+		errorResponse := fmt.Sprintf(`{"error": "Failed to parse protobuf data", "details": "%s"}`, err.Error())
+		return io.NopCloser(strings.NewReader(errorResponse)), nil
 	}
 	
 	// Configure JSON marshaling options
@@ -73,11 +132,26 @@ func (r registerer) registerProtoDecoder(
 	// Convert protobuf to JSON
 	jsonData, err := marshaler.Marshal(message)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[ERROR] Marshaling to JSON: %s\n", err.Error())
-		return nil, err
+		errMsg := fmt.Sprintf("[ERROR] Marshaling to JSON: %s\n", err.Error())
+		fmt.Fprintf(os.Stderr, errMsg)
+		if logFile != nil {
+			fmt.Fprintf(logFile, "%s\n", errMsg)
+		}
+		// Return a friendly error response
+		errorResponse := fmt.Sprintf(`{"error": "Failed to convert protobuf to JSON", "details": "%s"}`, err.Error())
+		return io.NopCloser(strings.NewReader(errorResponse)), nil
 	}
 	
-	fmt.Fprintf(os.Stderr, "[DEBUG] Successfully decoded protobuf to JSON\n")
+	successMsg := "[DEBUG] Successfully decoded protobuf to JSON\n"
+	fmt.Fprintf(os.Stderr, successMsg)
+	if logFile != nil {
+		fmt.Fprintf(logFile, "%s\n", successMsg)
+		if len(jsonData) > 100 {
+			fmt.Fprintf(logFile, "First 100 chars of JSON: %s\n", jsonData[:100])
+		} else if len(jsonData) > 0 {
+			fmt.Fprintf(logFile, "JSON output: %s\n", jsonData)
+		}
+	}
 	
 	// Return the JSON data as a ReadCloser
 	return io.NopCloser(bytes.NewReader(jsonData)), nil
