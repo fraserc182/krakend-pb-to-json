@@ -7,7 +7,7 @@ A KrakenD plugin that converts Protocol Buffer data to JSON.
 ### Prerequisites
 
 - KrakenD gateway installed
-- Go 1.18+ installed
+- Go 1.23.5 installed (must match KrakenD version)
 - Protocol buffer compiler (protoc) installed
 
 ### Build Plugin
@@ -42,7 +42,7 @@ go build -buildmode=plugin -o krakend-pb-to-json.so .
           "host": ["http://your-backend-service"],
           "extra_config": {
             "plugin/http-client": {
-              "name": ["krakend-pb-to-json.so"],
+              "name": ["krakend-pb-to-json"],
               "plugin": "proto"
             }
           }
@@ -52,6 +52,8 @@ go build -buildmode=plugin -o krakend-pb-to-json.so .
   ]
 }
 ```
+
+> **Note**: The `name` field should match your plugin filename without the `.so` extension. KrakenD will automatically add the extension.
 
 ## Development
 

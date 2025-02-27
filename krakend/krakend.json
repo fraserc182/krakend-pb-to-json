@@ -30,7 +30,7 @@
           ],
           "extra_config": {
             "plugin/http-client": {
-              "name": ["krakend-pb-to-json.so"],
+              "name": ["krakend-pb-to-json"],
               "plugin": "proto"
             }
           },
