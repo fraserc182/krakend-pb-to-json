@@ -46,12 +46,18 @@ func (r registerer) registerProtoDecoder(
 	// Log plugin invocation
 	fmt.Fprintf(os.Stderr, "[DEBUG] Proto decoder plugin invoked with config: %+v\n", cfg)
 	
-	// Create a debug log file in the current directory
-	logFile, err := os.OpenFile("/tmp/krakend-proto-debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// Create a debug log file in the current working directory
+	homeDir, _ := os.UserHomeDir()
+	logFilePath := homeDir + "/krakend-proto-debug.log"
+	fmt.Fprintf(os.Stderr, "[DEBUG] Writing logs to %s\n", logFilePath)
+	
+	logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		defer logFile.Close()
 		fmt.Fprintf(logFile, "--- New request ---\n")
 		fmt.Fprintf(logFile, "Config: %+v\n", cfg)
+	} else {
+		fmt.Fprintf(os.Stderr, "[ERROR] Cannot create log file: %s\n", err.Error())
 	}
 	
 	// Read all the response data
@@ -228,4 +234,42 @@ func main() {
     fmt.Println("KrakenD Protocol Buffer to JSON plugin loaded")
     fmt.Println("This is a plugin and is not meant to be run directly.")
     fmt.Println("Build with: go build -buildmode=plugin -o krakend-pb-to-json.so .")
+    
+    // Test function to verify plugin functionality
+    fmt.Println("\nRunning self-test...")
+    
+    // Create a test protobuf message
+    homeDir, _ := os.UserHomeDir()
+    logFile, _ := os.OpenFile(homeDir+"/krakend-plugin-test.log", os.O_CREATE|os.O_WRONLY, 0644)
+    if logFile != nil {
+        defer logFile.Close()
+        fmt.Fprintf(logFile, "Plugin self-test started\n")
+        
+        // Create a very simple example JSON response
+        testJSON := `{"test": "This is a test from the plugin's main function"}`
+        
+        // Create a reader with this JSON
+        jsonReader := strings.NewReader(testJSON)
+        
+        // Test if our plugin can handle this
+        fmt.Fprintf(logFile, "Creating plugin handler\n")
+        handler := HandlerRegisterer  // Already a registerer type
+        
+        // Create a mock ReadCloser
+        mockResponse := io.NopCloser(jsonReader)
+        
+        // Try to process it
+        fmt.Fprintf(logFile, "Calling plugin handler\n")
+        result, err := handler.registerProtoDecoder(nil, mockResponse)
+        
+        if err != nil {
+            fmt.Fprintf(logFile, "ERROR: %s\n", err)
+        } else if result != nil {
+            // Read the result
+            resultBytes, _ := io.ReadAll(result)
+            fmt.Fprintf(logFile, "SUCCESS: Got result: %s\n", string(resultBytes))
+        } else {
+            fmt.Fprintf(logFile, "ERROR: Nil result without error\n")
+        }
+    }
 }
