@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+package transit_realtime;
+option go_package = "krakend_pb_to_json/pkg/proto";
+
+import "gtfs-realtime.proto";
